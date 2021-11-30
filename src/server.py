@@ -24,7 +24,7 @@ app = Flask(__name__)
 params = {
     'node_names': [],
     'model_list' : [],
-    'number_of_samples' : [100],
+    'number_of_samples' : [30, 70],
     'device' : 'cpu',
     'architecture' : 'simplenet',
     'batch_size' : 2,
@@ -32,10 +32,10 @@ params = {
     'number_of_epochs' : 1,
     'learning_rate' : 0.01,
     'pretrained' : True,
-    'aggregator' : 'fedavg', #fedavg or comed
+    'aggregator' : 'comed', #fedavg or comed
     'out_features' : 10,
     'count_done': 0, 
-    'phase': 'init' #init, aggregating, training
+    'phase': 0 #init, aggregating, training
 }
 
 #create dfs
@@ -61,8 +61,6 @@ def getConnection():
         data = request.get_json()
         params['node_names'].append(data['node_number'])
         print(params['node_names'][-1])
-        if len(params['node_names']) == len(params['number_of_samples']):
-            params['phase'] = 'training'
         return json.dumps(params)
     else:
         print("Maximum limit reached!")
@@ -95,9 +93,8 @@ def sendmodel():
     path = os.path.join('./models', \
         request.files['file'].filename)
     file.save(path)
-
+    
     params['count_done']+=1
-    params['phase'] = 'aggregation'
     if params['count_done'] == len(params['number_of_samples']):
         result = {"status": "doaggregation"}
     else:
@@ -110,6 +107,10 @@ def aggregation_thread():
     for node in params['node_names']:
         node_model = torch.load('models/node_'+str(node)+'.pt') \
             .to(params['device'])
+        acc, f1 = test(node_model, testloader, params['device'])
+        print("node_"+str(node), end=' ')
+        print("Test acc:", acc, end=' ')
+        print("| F1:", f1)
         # test(serverargs, node_model, test_loader, logger=logger)
         node_tuple = (node_model, params['number_of_samples'][int(node)])
         model_data.append(node_tuple)
@@ -123,10 +124,10 @@ def aggregation_thread():
     
     torch.save(agg_model, 'models/agg_model.pt')
     print("---Aggregation Done---")
-    params['phase'] = 'training'
+    params['phase'] += 1
     params['count_done'] = 0
     acc, f1 = test(agg_model, testloader, params['device'])
-    print("Test acc:", acc, end=' ')
+    print("agg_model Test acc:", acc, end=' ')
     print("| F1:", f1)
 
 

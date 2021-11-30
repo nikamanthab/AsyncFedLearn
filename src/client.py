@@ -38,13 +38,10 @@ def getModel(url, path):
         response = requests.post(url+'/checkphase', \
             json={} \
                 )
-        print(response.json()['phase'])
-        if (response.json()['phase'] == 'aggregation'):
-            print("Waiting for aggregation...")
-            time.sleep(10)
-            continue
-        elif (response.json()['phase'] == 'init'):
-            print("waiting for other nodes to join...")
+        server_phase = response.json()['phase']
+        print(server_phase, ",", node_details['local_init_counter'])
+        if server_phase != node_details['local_init_counter']:
+            print('waiting...')
             time.sleep(10)
             continue
         else:
@@ -54,6 +51,7 @@ def getModel(url, path):
     for chunk in response.iter_content(chunk_size=1024):
         model_file.write(chunk)
     model_file.close()
+    node_details['local_init_counter']+=1
 
 def sendModel(url, path, node_details):
     res = requests.post(url+'/sendmodel', files={'file': ('node_'+node_details['node_number']+'.pt', open(path, 'rb'))}, stream=True)
