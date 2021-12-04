@@ -21,8 +21,6 @@ from tqdm import tqdm
 import random
 import argparse
 
-for i in os.listdir('client_models'):
-    os.remove('client_models/'+i)
 
 parser = argparse.ArgumentParser(description='Client module.')
 parser.add_argument('--number', type=str, default='0', \

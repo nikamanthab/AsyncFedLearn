@@ -15,11 +15,17 @@ import copy
 import threading
 import os
 from aggregator import fed_avg_aggregator, comed_aggregator
-
+import csv
 from flask import Flask, request, send_from_directory, send_file
 import requests
 import json
 app = Flask(__name__)
+
+for i in os.listdir('models'):
+    os.remove('models/'+i)
+
+for i in os.listdir('client_models'):
+    os.remove('client_models/'+i)
 
 params = {
     'node_names': [],
@@ -28,16 +34,22 @@ params = {
     'number_of_samples' : [30, 70],
     'device' : 'cpu',
     'architecture' : 'simplenet',
-    'batch_size' : 2,
+    'batch_size' : 16,
     'number_of_iterations' : 50,
     'number_of_epochs' : 1,
     'learning_rate' : 0.01,
     'pretrained' : True,
-    'aggregator' : 'comed', #fedavg or comed
+    'aggregator' : 'fedavg', #fedavg or comed
     'out_features' : 10,
     'count_done': 0, 
     'phase': 0 #init, aggregating, training
 }
+
+start_time = time()
+file_name_str = params['architecture']+'_'+params['aggregator']+'_'+str(len(params['number_of_samples']))
+f = open('../src/results/'+file_name_str+'.csv', 'w')
+writer = csv.writer(f)
+writer.writerow(['time', 'acc', 'f1'])
 
 #create dfs
 traindf_list = generate_train_data(params['number_of_samples'])
@@ -122,6 +134,9 @@ def aggregation_thread():
     acc, f1 = test(agg_model, testloader, params['device'])
     print("agg_model Test acc:", acc, end=' ')
     print("| F1:", f1)
+    abs_time = time() - start_time
+    writer.writerow([abs_time, acc, f1])
+    
 
 
 @app.route('/doaggregation', methods=['GET','POST'])

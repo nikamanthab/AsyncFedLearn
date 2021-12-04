@@ -21,6 +21,13 @@ import requests
 import json
 app = Flask(__name__)
 
+
+for i in os.listdir('models'):
+    os.remove('models/'+i)
+
+for i in os.listdir('client_models'):
+    os.remove('client_models/'+i)
+
 params = {
     'node_names': [],
     'model_list' : [],
