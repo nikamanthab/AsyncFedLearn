@@ -23,7 +23,9 @@ import argparse
 parser = argparse.ArgumentParser(description='Client module.')
 parser.add_argument('--number', type=str, default='0', \
     help='0, 1, 2, ...')
+parser.add_argument('--ip', type=str, default='0', help='enter ip address')
 args = parser.parse_args()
+ip_address = args.ip
 
 node_details = {
     'node_number': args.number,
@@ -39,10 +41,10 @@ def getModel(url, path):
             json={} \
                 )
         server_phase = response.json()['phase']
-        print(server_phase, ",", node_details['local_init_counter'])
+        # print(server_phase, ",", node_details['local_init_counter'])
         if server_phase != node_details['local_init_counter']:
-            print('waiting...')
-            time.sleep(10)
+            # print('waiting...')
+            # time.sleep(1)
             continue
         else:
             break
@@ -62,7 +64,7 @@ def sendModel(url, path, node_details):
 ##########################
 
 # Get connection
-server_params = getConnection('http://127.0.0.1:5000', node_details)
+server_params = getConnection('http://'+ip_address+':5000', node_details)
 node_details.update(server_params)
 
 #Load dataframe
@@ -75,7 +77,7 @@ testloader = get_test_dataloader(test_df, node_details['device'])
 while(True):
 
     # Get init or agg model
-    getModel('http://127.0.0.1:5000', './client_models/node_'+str(node_details['node_number'])+'.pt')
+    getModel('http://'+ip_address+':5000', './client_models/node_'+str(node_details['node_number'])+'.pt')
     model = torch.load('./client_models/node_'+str(node_details['node_number'])+'.pt').to(node_details['device'])
     model = model.to(node_details['device'])
 
@@ -93,9 +95,9 @@ while(True):
         print("||", end=' ')
 
         #test at each step
-        acc, f1 = test(model, testloader, node_details['device'])
-        print("Test acc:", acc, end=' ')
-        print("| F1:", f1)
+        # acc, f1 = test(model, testloader, node_details['device'])
+        # print("Test acc:", acc, end=' ')
+        # print("| F1:", f1)
     torch.save(model, 'client_models/node_'+str(node_details['node_number'])+'.pt')
-    sendModel('http://127.0.0.1:5000', 'client_models/node_'+str(node_details['node_number'])+'.pt', node_details)
+    sendModel('http://'+ip_address+':5000', 'client_models/node_'+str(node_details['node_number'])+'.pt', node_details)
 

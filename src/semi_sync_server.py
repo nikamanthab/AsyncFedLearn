@@ -19,7 +19,14 @@ import csv
 from flask import Flask, request, send_from_directory, send_file
 import requests
 import json
+import logging
+
 app = Flask(__name__)
+log = logging.getLogger('werkzeug')
+log.disabled = True
+import socket
+print("ip address: ", socket.gethostbyname(socket.gethostname()))
+
 
 for i in os.listdir('models'):
     os.remove('models/'+i)
@@ -31,22 +38,22 @@ params = {
     'node_names': [],
     'threshold': 0.5,
     'model_queue': [],
-    'number_of_samples' : [30, 70],
+    'number_of_samples' : [10,20, 30, 40],
     'device' : 'cpu',
     'architecture' : 'simplenet',
-    'batch_size' : 16,
+    'batch_size' : 4,
     'number_of_iterations' : 50,
     'number_of_epochs' : 1,
     'learning_rate' : 0.01,
     'pretrained' : True,
-    'aggregator' : 'fedavg', #fedavg or comed
+    'aggregator' : 'comed', #fedavg or comed
     'out_features' : 10,
     'count_done': 0, 
     'phase': 0 #init, aggregating, training
 }
 
 start_time = time()
-file_name_str = params['architecture']+'_'+params['aggregator']+'_'+str(len(params['number_of_samples']))
+file_name_str = 'semi_'+params['architecture']+'_'+params['aggregator']+'_'+str(len(params['number_of_samples']))
 f = open('../src/results/'+file_name_str+'.csv', 'w')
 writer = csv.writer(f)
 writer.writerow(['time', 'acc', 'f1'])
@@ -55,7 +62,7 @@ writer.writerow(['time', 'acc', 'f1'])
 traindf_list = generate_train_data(params['number_of_samples'])
 test_df = generate_test_data()
 test_df.to_csv('./dataframes/test.csv', index=False)
-testloader = get_test_dataloader(test_df)
+testloader = get_test_dataloader(test_df, params['device'])
 
 for idx, df in enumerate(traindf_list):
     df.to_csv('./dataframes/node_'+str(idx)+'.csv', index=False)
@@ -135,7 +142,12 @@ def aggregation_thread():
     print("agg_model Test acc:", acc, end=' ')
     print("| F1:", f1)
     abs_time = time() - start_time
+    f = open('../src/results/'+file_name_str+'.csv', 'w')
+    writer = csv.writer(f)
     writer.writerow([abs_time, acc, f1])
+    f.close()
+    if abs_time > 5000:
+        exit()
     
 
 
@@ -151,4 +163,4 @@ def hello():
     return "Hello World!"
 
 if __name__ == "__main__":
-    app.run()
+    app.run(host=socket.gethostbyname(socket.gethostname()),port=5000)

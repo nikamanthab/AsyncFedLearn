@@ -39,6 +39,7 @@ def construct_model(architecture, pretrained, device, out_features=10):
     if architecture == 'resnet18':
         model = resnet18(pretrained=pretrained)
         model.fc = nn.Linear(in_features=2048, out_features=out_features, bias=True)
+        print(model)
     elif architecture == 'resnet152':
         model = resnet152(pretrained=pretrained)
         model.fc = nn.Linear(in_features=512, out_features=out_features, bias=True)

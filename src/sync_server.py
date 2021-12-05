@@ -19,7 +19,16 @@ import csv
 from flask import Flask, request, send_from_directory, send_file
 import requests
 import json
+import argparse
+import socket
+import logging
+
 app = Flask(__name__)
+log = logging.getLogger('werkzeug')
+log.disabled = True
+
+print("ip address: ", socket.gethostbyname(socket.gethostname()))
+
 
 
 for i in os.listdir('models'):
@@ -31,31 +40,32 @@ for i in os.listdir('client_models'):
 params = {
     'node_names': [],
     'model_list' : [],
-    'number_of_samples' : [30, 70],
+    'number_of_samples' : [10,20,30,40],
     'device' : 'cpu',
     'architecture' : 'simplenet',
-    'batch_size' : 2,
-    'number_of_iterations' : 50,
+    'batch_size' : 4,
+    'number_of_iterations' : 30,
     'number_of_epochs' : 1,
     'learning_rate' : 0.01,
     'pretrained' : True,
-    'aggregator' : 'comed', #fedavg or comed
+    'aggregator' : 'fedavg', #fedavg or comed
     'out_features' : 10,
     'count_done': 0, 
     'phase': 0 #init, aggregating, training
 }
 start_time = time()
-file_name_str = params['architecture']+'_'+params['aggregator']+'_'+str(len(params['number_of_samples']))
+file_name_str = 'sync_'+params['architecture']+'_'+params['aggregator']+'_'+str(len(params['number_of_samples']))
 f = open('../src/results/'+file_name_str+'.csv', 'w')
 writer = csv.writer(f)
 writer.writerow(['time', 'acc', 'f1'])
+f.close()
 
 
 #create dfs
 traindf_list = generate_train_data(params['number_of_samples'])
 test_df = generate_test_data()
 test_df.to_csv('./dataframes/test.csv', index=False)
-testloader = get_test_dataloader(test_df)
+testloader = get_test_dataloader(test_df, params['device'])
 
 for idx, df in enumerate(traindf_list):
     df.to_csv('./dataframes/node_'+str(idx)+'.csv', index=False)
@@ -68,7 +78,7 @@ params['model_list'] = ['NA']*len(params['number_of_samples'])
 
 @app.route('/getConnection', methods=['GET', 'POST'])
 def getConnection():
-    print(params['phase'])
+    # print(params['phase'])
     print("Connecting Nodes:", end=" ") 
     if len(params['node_names']) < len(params['number_of_samples']):   
         data = request.get_json()
@@ -81,7 +91,7 @@ def getConnection():
 
 @app.route('/getmodel', methods=['GET', 'POST'])
 def getModel():
-    print(params['phase'])
+    # print(params['phase'])
     uploads = 'models'
     filename = 'agg_model.pt'
     return send_from_directory(uploads, filename)
@@ -101,7 +111,7 @@ def checkPhase():
 
 @app.route('/sendmodel', methods=['GET', 'POST'])
 def sendmodel():
-    print(params['phase'])
+    # print(params['phase'])
     file = request.files['file']
     path = os.path.join('./models', \
         request.files['file'].filename)
@@ -120,10 +130,10 @@ def aggregation_thread():
     for node in params['node_names']:
         node_model = torch.load('models/node_'+str(node)+'.pt') \
             .to(params['device'])
-        acc, f1 = test(node_model, testloader, params['device'])
-        print("node_"+str(node), end=' ')
-        print("Test acc:", acc, end=' ')
-        print("| F1:", f1)
+        # acc, f1 = test(node_model, testloader, params['device'])
+        # print("node_"+str(node), end=' ')
+        # print("Test acc:", acc, end=' ')
+        # print("| F1:", f1)
         # test(serverargs, node_model, test_loader, logger=logger)
         node_tuple = (node_model, params['number_of_samples'][int(node)])
         model_data.append(node_tuple)
@@ -137,13 +147,18 @@ def aggregation_thread():
     
     torch.save(agg_model, 'models/agg_model.pt')
     print("---Aggregation Done---")
+    acc, f1 = test(agg_model, testloader, params['device'])
     params['phase'] += 1
     params['count_done'] = 0
-    acc, f1 = test(agg_model, testloader, params['device'])
-    print("agg_model Test acc:", acc, end=' ')
-    print("| F1:", f1)
     abs_time = time() - start_time
+    f = open('../src/results/'+file_name_str+'.csv', 'a')
+    writer = csv.writer(f)
     writer.writerow([abs_time, acc, f1])
+    f.close()
+    print("abs_time", abs_time, "agg_model Test acc:", acc, end=' ')
+    print("| F1:", f1)
+    if abs_time > 5000:
+        exit()
 
 
 @app.route('/doaggregation', methods=['GET','POST'])
@@ -159,4 +174,4 @@ def hello():
     return "Hello World!"
 
 if __name__ == "__main__":
-    app.run()
+    app.run(host=socket.gethostbyname(socket.gethostname()),port=5000)

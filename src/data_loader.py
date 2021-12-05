@@ -17,7 +17,7 @@ from tqdm import tqdm_notebook
 label_dict = dict([(j,i) for (i,j) in sorted(list(enumerate(os.listdir('../Dataset/CIFAR-10-images/train/'))))])
 
 class CIFARDataSet(Dataset):
-    def __init__(self, csv_file, transform=None, device='cuda'):
+    def __init__(self, csv_file, transform, device):
         self.transform = transform
         self.df = csv_file
         self.device = device
@@ -38,21 +38,21 @@ class CIFARDataSet(Dataset):
         }
         return sample
 
-def get_train_dataloader(train_df, train_batch_size=32, device='cuda'):
+def get_train_dataloader(train_df, train_batch_size, device):
     traindataset = CIFARDataSet(train_df, transform=transforms.Compose([
     transforms.RandomCrop(32, padding=4),
     transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
     ]), device=device)
-    trainloader = DataLoader(traindataset, batch_size=train_batch_size,shuffle=True)
+    trainloader = DataLoader(traindataset, batch_size=train_batch_size,shuffle=True, num_workers=28)
     return trainloader
 
-def get_test_dataloader(test_df='../Dataset/test.csv', device='cuda'):
+def get_test_dataloader(test_df, device):
     valdataset = CIFARDataSet(test_df, transform=transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
     ]), device=device)
-    valloader = DataLoader(valdataset, batch_size=5000)
+    valloader = DataLoader(valdataset, batch_size=32, num_workers=28)
     return valloader
 

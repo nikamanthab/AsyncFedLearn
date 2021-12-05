@@ -16,10 +16,15 @@ import threading
 import os
 from aggregator import fed_avg_aggregator, comed_aggregator
 import csv
+import logging
 from flask import Flask, request, send_from_directory, send_file
 import requests
 import json
 app = Flask(__name__)
+log = logging.getLogger('werkzeug')
+log.disabled = True
+import socket
+print("ip address: ", socket.gethostbyname(socket.gethostname()))
 
 for i in os.listdir('models'):
     os.remove('models/'+i)
@@ -29,10 +34,10 @@ for i in os.listdir('client_models'):
 
 params = {
     'node_names': [],
-    'number_of_samples' : [30, 70],
+    'number_of_samples' : [10, 20, 30, 40],
     'device' : 'cpu',
     'architecture' : 'simplenet',
-    'batch_size' : 2,
+    'batch_size' : 4,
     'number_of_iterations' : 50,
     'number_of_epochs' : 1,
     'learning_rate' : 0.01,
@@ -42,16 +47,16 @@ params = {
 }
 
 start_time = time()
-file_name_str = params['architecture']+'_'+params['aggregator']+'_'+str(len(params['number_of_samples']))
+file_name_str = 'async_'+params['architecture']+'_'+params['aggregator']+'_'+str(len(params['number_of_samples']))
 f = open('../src/results/'+file_name_str+'.csv', 'w')
 writer = csv.writer(f)
 writer.writerow(['time', 'acc', 'f1'])
-
+f.close()
 #create dfs
 traindf_list = generate_train_data(params['number_of_samples'])
 test_df = generate_test_data()
 test_df.to_csv('./dataframes/test.csv', index=False)
-testloader = get_test_dataloader(test_df)
+testloader = get_test_dataloader(test_df, params['device'])
 
 for idx, df in enumerate(traindf_list):
     df.to_csv('./dataframes/node_'+str(idx)+'.csv', index=False)
@@ -121,10 +126,15 @@ def aggregation_thread(node_number):
     torch.save(agg_model, 'models/agg_model.pt')
     print("---Aggregation Done---")
     acc, f1 = test(agg_model, testloader, params['device'])
+    abs_time = time() - start_time
+    f = open('../src/results/'+file_name_str+'.csv', 'w')
+    writer = csv.writer(f)
+    writer.writerow([abs_time, acc, f1])
+    f.close()
     print("agg_model Test acc:", acc, end=' ')
     print("| F1:", f1)
-    abs_time = time() - start_time
-    writer.writerow([abs_time, acc, f1])
+    if abs_time > 5000:
+        exit()
 
 
 @app.route('/doaggregation', methods=['GET','POST'])
@@ -141,4 +151,4 @@ def hello():
     return "Hello World!"
 
 if __name__ == "__main__":
-    app.run()
+    app.run(host=socket.gethostbyname(socket.gethostname()),port=5000)

@@ -9,7 +9,7 @@ def generate_train_data(number_of_samples):
     paths = []
     label = []
     for i in os.listdir('../Dataset/CIFAR-10-images/train/'):
-        for j in os.listdir('../Dataset/CIFAR-10-images/train/'+str(i))[:]:
+        for j in os.listdir('../Dataset/CIFAR-10-images/train/'+str(i))[:500]:
             paths.append('../Dataset/CIFAR-10-images/train/'+str(i)+'/'+str(j))
             label.append(i)
     train_df = pd.DataFrame({"paths": paths, "label": label})  
@@ -26,7 +26,7 @@ def generate_test_data():
     paths = []
     label = []
     for i in os.listdir('../Dataset/CIFAR-10-images/test/'):
-        for j in os.listdir('../Dataset/CIFAR-10-images/test/'+str(i))[:]:
+        for j in os.listdir('../Dataset/CIFAR-10-images/test/'+str(i))[:50]:
             paths.append('../Dataset/CIFAR-10-images/test/'+str(i)+'/'+str(j))
             label.append(i)
     test_df = pd.DataFrame({"paths": paths, "label": label})
